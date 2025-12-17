@@ -8,6 +8,16 @@ Bộ công cụ Python tự động tạo dữ liệu test cho hệ thống **Or
 
 ## 🛠️ Cài đặt
 
+**Nếu sử dụng venv**
+
+
+```bash
+# Bước 1: Tạo
+python -m venv venv
+# Bước 2: Chạy
+.\venv\Scripts\activate
+```
+
 ```bash
 # 1. Clone repo
 git clone https://github.com/LTVINH24/KTPM.git

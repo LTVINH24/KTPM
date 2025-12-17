@@ -59,7 +59,7 @@ def generate_performance_data():
         
         # Xóa dữ liệu cũ
         cursor.execute("DELETE FROM ohrm_performance_tracker_log")
-        cursor.execute("DELETE FROM ohrm_performance_tracker")
+        cursor.execute("DELETE FROM ohrm_performance_track")
         cursor.execute("DELETE FROM ohrm_reviewer")
         cursor.execute("DELETE FROM ohrm_performance_review")
         
@@ -91,7 +91,7 @@ def generate_performance_data():
 
                 # Insert tracker
                 cursor.execute("""
-                    INSERT INTO ohrm_performance_tracker 
+                    INSERT INTO ohrm_performance_track 
                     (tracker_name, emp_number, added_date, modified_date, status)
                     VALUES (%s, %s, %s, %s, 1)
                 """, (
@@ -105,7 +105,7 @@ def generate_performance_data():
 
                 # Thêm reviewer cho tracker
                 cursor.execute("""
-                    INSERT INTO ohrm_reviewer (review_id, employee_id, status, group_id)
+                    INSERT INTO ohrm_reviewer (review_id, employee_number, status, reviewer_group_id)
                     VALUES (%s, %s, 1, 1)
                 """, (tracker_id, reviewer_emp))
 
@@ -163,8 +163,8 @@ def generate_performance_data():
             job_title_id = random.choice(job_title_ids) if job_title_ids else None
             try:
                 cursor.execute("""
-                    INSERT INTO ohrm_kpi (job_title_code, kpi, min_rating, max_rating, is_deleted, default_kpi)
-                    VALUES (%s, %s, %s, %s, 0, 0)
+                    INSERT INTO ohrm_kpi (job_title_code, kpi_indicators, min_rating, max_rating, deleted_at, default_kpi)
+                    VALUES (%s, %s, %s, %s, NULL, 0)
                 """, (job_title_id, kpi_title, min_rating, max_rating))
                 kpi_ids.append(cursor.lastrowid)
             except Exception as e:
@@ -196,14 +196,13 @@ def generate_performance_data():
             # Tạo review
             cursor.execute("""
                 INSERT INTO ohrm_performance_review 
-                (status_id, employee_number, reviewer_emp_number, work_period_start, 
+                (status_id, employee_number, work_period_start, 
                  work_period_end, job_title_code, department_id, due_date, 
                  completed_date, activated_date, final_comment, final_rate)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 status,
                 emp_number,
-                reviewer[0],
                 review_date - timedelta(days=90),  # work_period_start
                 review_date,  # work_period_end
                 3,  # job_title_code (Staff)
@@ -240,9 +239,9 @@ def generate_performance_data():
                     try:
                         cursor.execute("""
                             INSERT INTO ohrm_reviewer_rating 
-                            (review_id, kpi_id, rating, comment)
-                            VALUES (%s, %s, %s, %s)
-                        """, (review_id, kpi_id, rating, comment))
+                            (review_id, kpi_id, rating, comment, reviewer_id)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (review_id, kpi_id, rating, comment, reviewer_emp))
                         rating_count += 1
                     except:
                         pass

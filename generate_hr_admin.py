@@ -252,7 +252,7 @@ def generate_hr_admin_data():
                 edu_id = random.choice(edu_ids)
                 try:
                     cursor.execute("""
-                        INSERT IGNORE INTO hs_hr_emp_education 
+                        INSERT IGNORE INTO ohrm_emp_education 
                         (emp_number, education_id, institute, major, year, score, start_date, end_date)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
@@ -326,7 +326,7 @@ def generate_hr_admin_data():
         
         for name, date, length, recurring in holidays:
             cursor.execute("""
-                INSERT IGNORE INTO ohrm_holiday (name, date, length, recurring, operational_country_id)
+                INSERT IGNORE INTO ohrm_holiday (description, date, length, recurring, operational_country_id)
                 VALUES (%s, %s, %s, %s, NULL)
             """, (name, date, length, recurring))
         

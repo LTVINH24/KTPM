@@ -26,7 +26,7 @@ def generate_attendance_role_based():
     conn = None
     try:
         conn = connect_db()
-        cursor = conn.cursor()
+        cursor = conn.cursor(buffered=True)
         print("-> Kết nối Database thành công!")
         cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
 
