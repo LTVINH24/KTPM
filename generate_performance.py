@@ -175,6 +175,11 @@ def generate_performance_data():
         # BƯỚC 4: TẠO PERFORMANCE REVIEWS
         print("-> Đang tạo Performance Reviews...")
         
+        # Lấy job_title_code cho Staff
+        cursor.execute("SELECT id FROM ohrm_job_title WHERE job_title = 'Staff' LIMIT 1")
+        staff_job_result = cursor.fetchone()
+        staff_job_code = staff_job_result[0] if staff_job_result else job_title_ids[0] if job_title_ids else None
+        
         review_statuses = [1, 2, 3, 4]  # 1=Activated, 2=In Progress, 3=Completed, 4=Approved
         review_count = 0
         review_ids = []
@@ -205,7 +210,7 @@ def generate_performance_data():
                 emp_number,
                 review_date - timedelta(days=90),  # work_period_start
                 review_date,  # work_period_end
-                3,  # job_title_code (Staff)
+                staff_job_code,  # job_title_code (lấy từ database)
                 None,
                 due_date,
                 review_date if status >= 3 else None,  # completed_date
@@ -216,6 +221,13 @@ def generate_performance_data():
             review_id = cursor.lastrowid
             review_ids.append((review_id, status, reviewer[0]))
             review_count += 1
+            
+            # Thêm reviewer cho review (BẮT BUỘC để hiển thị trên UI)
+            cursor.execute("""
+                INSERT INTO ohrm_reviewer 
+                (review_id, employee_number, status, reviewer_group_id)
+                VALUES (%s, %s, %s, %s)
+            """, (review_id, reviewer[0], 1 if status < 3 else 2, 1))
 
         print(f"   Đã tạo {review_count} Performance Reviews")
 
