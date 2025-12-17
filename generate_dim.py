@@ -1,15 +1,20 @@
 import mysql.connector
 from faker import Faker
 import random
-import bcrypt 
+import bcrypt
+import os
+from dotenv import load_dotenv
 
-# --- CẤU HÌNH DATABASE ---
+# Load biến môi trường từ file .env
+load_dotenv()
+
+# --- CẤU HÌNH DATABASE TỪ .ENV ---
 DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'orangehrm',
-    'password': 'orangehrm',
-    'database': 'orangehrm',
-    'port': 3306
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'user': os.getenv('DB_USER', 'orangehrm'),
+    'password': os.getenv('DB_PASSWORD', 'orangehrm'),
+    'database': os.getenv('DB_NAME', 'orangehrm'),
+    'port': int(os.getenv('DB_PORT', 3306))
 }
 
 NUM_EMPLOYEES = 50 
