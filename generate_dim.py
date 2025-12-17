@@ -37,8 +37,9 @@ def generate_pim_data():
         print("-> Kết nối Database thành công!")
         cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
 
-        # BƯỚC 1: SINH DỮ LIỆU JOB TITLES
-        print("-> Đang sinh Job Titles & Status...")
+        # BƯỚC 1: TẠO DỮ LIỆU JOB TITLES
+        print("-> Đang tạo Job Titles...")
+
         job_titles = ['Director', 'Manager', 'Staff']
         job_map = {}
         for title in job_titles:
@@ -46,7 +47,9 @@ def generate_pim_data():
             cursor.execute("SELECT id FROM ohrm_job_title WHERE job_title = %s", (title,))
             job_map[title] = cursor.fetchone()[0]
 
-        # BƯỚC 2: SINH DỮ LIỆU EMPLOYMENT STATUS
+        # BƯỚC 2: TẠO DỮ LIỆU EMPLOYMENT STATUS
+        print("-> Đang tạo Employment Status...")
+
         statuses = ['Full-Time Permanent', 'Full-Time Contract']
         status_map = {}
         for s in statuses:
@@ -54,8 +57,8 @@ def generate_pim_data():
             cursor.execute("SELECT id FROM ohrm_employment_status WHERE name = %s", (s,))
             status_map[s] = cursor.fetchone()[0]
 
-        # BƯỚC 3: SINH DỮ LIỆU NHÂN VIÊN & USER
-        print(f"-> Đang sinh {NUM_EMPLOYEES} nhân viên và tài khoản...")
+        # BƯỚC 3:  TẠO DỮ LIỆU NHÂN VIÊN & USER
+        print(f"-> Đang tạo {NUM_EMPLOYEES} nhân viên và tài khoản...")
         
         director_id = None
         manager_ids = []
@@ -143,8 +146,8 @@ def generate_pim_data():
             except mysql.connector.Error as err: 
                 print(f"Lỗi {emp_number}: {err}")
 
-        # BƯỚC 4: SINH DỮ LIỆU REPORTING (GIỮ NGUYÊN)
-        print("-> Đang sinh dữ liệu báo cáo...")
+        # BƯỚC 4:TẠO DỮ LIỆU REPORTING
+        print("-> Đang tạo dữ liệu báo cáo...")
         cursor.execute("INSERT IGNORE INTO ohrm_emp_reporting_method (reporting_method_id, reporting_method_name) VALUES (1, 'Direct')")
         sql_report = "INSERT INTO hs_hr_emp_reportto (erep_sup_emp_number, erep_sub_emp_number, erep_reporting_mode) VALUES (%s, %s, 1)"
 
@@ -162,7 +165,7 @@ def generate_pim_data():
 
         conn.commit()
         cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
-        print(f"\n[THÀNH CÔNG] Đã tạo {NUM_EMPLOYEES} nhân viên KÈM TÀI KHOẢN.")
+        print(f"\n[THÀNH CÔNG] Đã tạo {NUM_EMPLOYEES} nhân viên và tài khoản.")
         
     except mysql.connector.Error as err:
         print(f"Lỗi MySQL: {err}")

@@ -92,11 +92,11 @@ def generate_attendance_role_based():
             act_id = cursor.fetchone()[0]
             role_activities['Director'].append((int_proj_id, act_id))
 
-        # BƯỚC 3: SINH TIMESHEET VÀ ACTION LOG
-        print("-> Đang sinh Timesheet kèm Action Log...")
+        # BƯỚC 3: TẠO TIMESHEET VÀ ACTION LOG
+        print("-> Đang tạo Timesheet kèm Action Log...")
         
         sql_timesheet = "INSERT INTO ohrm_timesheet (employee_id, state, start_date, end_date) VALUES (%s, %s, %s, %s)"
-        sql_item = "INSERT INTO ohrm_timesheet_item (timesheet_id, date, duration, comment, project_id, activity_id) VALUES (%s, %s, %s, %s, %s, %s)"
+        sql_item = "INSERT INTO ohrm_timesheet_item (timesheet_id, date, duration, comment, project_id, employee_id, activity_id) VALUES (%s, %s, %s, %s, %s, %s, %s)"
         sql_log = "INSERT INTO ohrm_timesheet_action_log (timesheet_id, action, date_time, performed_by, comment) VALUES (%s, %s, %s, %s, %s)"
 
         today = datetime.now()
@@ -105,7 +105,7 @@ def generate_attendance_role_based():
         admin_user_id = 1 
 
         for emp_id, job_title in employees_data:
-            job_title = job_title if job_title else 'Staff'
+            job_title = job_title if job_title else 'Director'  
             suitable_acts = role_activities.get(job_title, role_activities['Staff'])
             if not suitable_acts: continue
 
@@ -131,14 +131,14 @@ def generate_attendance_role_based():
                         else:
                             cmt = "General management"
 
-                        cursor.execute(sql_item, (ts_id, work_date.date(), 28800, cmt, proj_id, act_id))
+                        cursor.execute(sql_item, (ts_id, work_date.date(), 28800, cmt, proj_id, emp_id, act_id))
                     
-                    # 3. [MỚI] TẠO LOG LỊCH SỬ (ACTION LOG)
+                    # 3.TẠO LOG LỊCH SỬ (ACTION LOG)
                     # Giả định nhân viên nộp vào chiều Thứ 6 lúc 17:00
                     submit_time = (start_date + timedelta(days=4)).replace(hour=17, minute=0, second=0)
                     
                     # Luôn có log SUBMITTED
-                    cursor.execute(sql_log, (ts_id, 'SUBMITTED', submit_time, admin_user_id, "Submitted by System"))
+                    cursor.execute(sql_log, (ts_id, 'SUBMITTED', submit_time, emp_id, "Submitted by System"))
 
                     # Nếu trạng thái là APPROVED thì thêm log APPROVED (duyệt vào sáng Thứ 2 tuần sau)
                     if state == 'APPROVED':
@@ -147,13 +147,12 @@ def generate_attendance_role_based():
                         cursor.execute(sql_log, (ts_id, 'APPROVED', approve_time, admin_user_id, "Approved by Manager"))
 
                 except mysql.connector.Error as err:
-                    # [QUAN TRỌNG] In lỗi ra để biết tại sao không thêm được
                     print(f"[LỖI DB] Emp {emp_id} - Tuần {start_date.date()}: {err}")
                 except Exception as e:
                     print(f"[LỖI Code] {e}")
 
-        # BƯỚC 4: SINH ATTENDANCE (GIỮ NGUYÊN)
-        print("-> Đang sinh dữ liệu chấm công (Punch In/Out)...")
+        # BƯỚC 4: TẠO ATTENDANCE
+        print("-> Đang tạo dữ liệu chấm công (Punch In/Out)...")
         sql_att = "INSERT INTO ohrm_attendance_record (employee_id, punch_in_utc_time, punch_in_user_time_offset, punch_out_utc_time, punch_out_user_time_offset) VALUES (%s, %s, 7, %s, 7)"
         
         for emp_id, _ in employees_data:
@@ -174,7 +173,7 @@ def generate_attendance_role_based():
 
         conn.commit()
         cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
-        print("\n[HOÀN TẤT] Dữ liệu Time & Attendance đầy đủ (Kèm Action Log)!")
+        print("\n[THÀNH CÔNG] Đã tạo dữ liệu Time & Attendance!")
 
     except mysql.connector.Error as err:
         print(f"Lỗi MySQL: {err}")
