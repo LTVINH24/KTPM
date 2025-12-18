@@ -2,3 +2,8 @@ mysql-connector-python
 faker
 bcrypt
 python-dotenv
+
+# Functional Testing
+selenium
+webdriver-manager
+openpyxl
