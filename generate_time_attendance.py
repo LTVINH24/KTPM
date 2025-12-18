@@ -24,22 +24,6 @@ def generate_attendance_role_based():
         cursor = conn.cursor()
         print("-> Kết nối Database thành công!")
         cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
-
-        #BƯỚC 0: CẤU HÌNH HỆ THỐNG TRONG hs_hr_config
-        print("-> Đang kích hoạt cấu hình Timesheet toàn hệ thống...")
-        configs = [
-            ('timesheet_period_and_start', '<TimesheetPeriod><PeriodType>Weekly</PeriodType><ClassName>WeeklyTimesheetPeriod</ClassName><StartDate>1</StartDate><Heading>Week</Heading></TimesheetPeriod>'),
-            ('timesheet_period_set', 'Yes'),
-            ('timesheet_time_format', '1')
-        ]
-        sql_config = """
-            INSERT INTO hs_hr_config (name, value) VALUES (%s, %s)
-            ON DUPLICATE KEY UPDATE value = %s
-        """
-
-        for cfg_name, cfg_value in configs:
-            cursor.execute(sql_config, (cfg_name, cfg_value, cfg_value))
-
         # BƯỚC 1: LẤY NHÂN VIÊN KÈM CHỨC DANH
         print("-> Đang lấy danh sách nhân viên và chức danh...")
         sql_get_emp = """
