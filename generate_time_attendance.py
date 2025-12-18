@@ -25,6 +25,21 @@ def generate_attendance_role_based():
         print("-> Kết nối Database thành công!")
         cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
 
+        #BƯỚC 0: CẤU HÌNH HỆ THỐNG TRONG hs_hr_config
+        print("-> Đang kích hoạt cấu hình Timesheet toàn hệ thống...")
+        configs = [
+            ('timesheet_period_and_start', '<TimesheetPeriod><PeriodType>Weekly</PeriodType><ClassName>WeeklyTimesheetPeriod</ClassName><StartDate>1</StartDate><Heading>Week</Heading></TimesheetPeriod>'),
+            ('timesheet_period_set', 'Yes'),
+            ('timesheet_time_format', '1')
+        ]
+        sql_config = """
+            INSERT INTO hs_hr_config (name, value) VALUES (%s, %s)
+            ON DUPLICATE KEY UPDATE value = %s
+        """
+
+        for cfg_name, cfg_value in configs:
+            cursor.execute(sql_config, (cfg_name, cfg_value, cfg_value))
+
         # BƯỚC 1: LẤY NHÂN VIÊN KÈM CHỨC DANH
         print("-> Đang lấy danh sách nhân viên và chức danh...")
         sql_get_emp = """
@@ -43,7 +58,7 @@ def generate_attendance_role_based():
         print("-> Đang tạo Dự án & Hoạt động phân theo vai trò...")
 
         # A. KHÁCH HÀNG BÊN NGOÀI
-        cursor.execute("INSERT IGNORE INTO ohrm_customer (name, is_deleted) VALUES ('Global Tech Corp', 0)")
+        cursor.execute("INSERT IGNORE INTO ohrm_customer (name,description, is_deleted) VALUES ('Global Tech Corp', 'Global Technology Corporation', 0)")
         cursor.execute("SELECT customer_id FROM ohrm_customer WHERE name = 'Global Tech Corp'")
         ext_cust_id = cursor.fetchone()[0]
 
@@ -55,7 +70,7 @@ def generate_attendance_role_based():
             ext_proj_ids.append(cursor.fetchone()[0])
 
         # B. KHÁCH HÀNG NỘI BỘ
-        cursor.execute("INSERT IGNORE INTO ohrm_customer (name, is_deleted) VALUES ('Internal Management', 0)")
+        cursor.execute("INSERT IGNORE INTO ohrm_customer (name,description, is_deleted) VALUES ('Internal Management', 'Internal Management Department', 0)")
         cursor.execute("SELECT customer_id FROM ohrm_customer WHERE name = 'Internal Management'")
         int_cust_id = cursor.fetchone()[0]
 
