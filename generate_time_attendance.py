@@ -100,8 +100,9 @@ def generate_attendance_role_based():
 
         today = datetime.now()
         start_weeks = [today - timedelta(days=today.weekday() + 7*k) for k in range(1, 5)]        
-        # Dùng User ID = 1 (Admin) đại diện cho người thực hiện hành động duyệt
-        admin_user_id = 1 
+        # Dùng User 1000 (Director) đại diện cho người thực hiện hành động duyệt
+        cursor.execute("SELECT id FROM ohrm_user WHERE emp_number = 1000")
+        admin_user_id = cursor.fetchone()[0]
 
         for emp_id, job_title in employees_data:
             job_title = job_title if job_title else 'Director'  
@@ -135,9 +136,13 @@ def generate_attendance_role_based():
                     # 3.TẠO LOG LỊCH SỬ (ACTION LOG)
                     # Giả định nhân viên nộp vào chiều Thứ 6 lúc 17:00
                     submit_time = (start_date + timedelta(days=4)).replace(hour=17, minute=0, second=0)
-                    
+                    # Lấy ID người nộp
+                    cursor.execute("SELECT id FROM ohrm_user WHERE emp_number = %s", (emp_id,))
+                    user_record = cursor.fetchone()
+                    # Nếu nhân viên không có tài khoản, dùng Admin ID làm người nộp thay thế
+                    submitter_user_id = user_record[0] if user_record else admin_user_id
                     # Luôn có log SUBMITTED
-                    cursor.execute(sql_log, (ts_id, 'SUBMITTED', submit_time, emp_id, "Submitted by System"))
+                    cursor.execute(sql_log, (ts_id, 'SUBMITTED', submit_time, submitter_user_id, "Submitted by System"))
 
                     # Nếu trạng thái là APPROVED thì thêm log APPROVED (duyệt vào sáng Thứ 2 tuần sau)
                     if state == 'APPROVED':
@@ -149,26 +154,41 @@ def generate_attendance_role_based():
                     print(f"[LỖI DB] Emp {emp_id} - Tuần {start_date.date()}: {err}")
                 except Exception as e:
                     print(f"[LỖI Code] {e}")
-
         # BƯỚC 4: TẠO ATTENDANCE
         print("-> Đang tạo dữ liệu chấm công (Punch In/Out)...")
-        sql_att = "INSERT INTO ohrm_attendance_record (employee_id, punch_in_utc_time, punch_in_user_time_offset, punch_out_utc_time, punch_out_user_time_offset) VALUES (%s, %s, 7, %s, 7)"
         
+        sql_att = """
+            INSERT INTO ohrm_attendance_record 
+            (employee_id, punch_in_utc_time, punch_in_time_offset, punch_in_user_time, 
+             punch_out_utc_time, punch_out_time_offset, punch_out_user_time, state) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'PUNCHED OUT')
+        """
+        offset_value = '7' 
         for emp_id, _ in employees_data:
             for i in range(30):
                 curr = today - timedelta(days=i)
-                if curr.weekday() >= 5: continue
+                if curr.weekday() >= 5: continue 
                 
                 in_hour = 8; in_minute = random.randint(0, 45)
-                punch_in_time = curr.replace(hour=in_hour, minute=in_minute, second=0)
-                duration_at_office = timedelta(hours=9, minutes=random.randint(0, 30))
-                punch_out_time = punch_in_time + duration_at_office
+                p_in_local = curr.replace(hour=in_hour, minute=in_minute, second=0)
+                p_in_utc = p_in_local - timedelta(hours=7)
 
-                p_in_str = punch_in_time.strftime('%Y-%m-%d %H:%M:%S')
-                p_out_str = punch_out_time.strftime('%Y-%m-%d %H:%M:%S')
-                
-                try: cursor.execute(sql_att, (emp_id, p_in_str, p_out_str))
-                except: pass
+                duration = timedelta(hours=9, minutes=random.randint(0, 30))
+                p_out_local = p_in_local + duration
+                p_out_utc = p_out_local - timedelta(hours=7)
+                try: 
+                    cursor.execute(sql_att, (
+                        emp_id, 
+                        p_in_utc.strftime('%Y-%m-%d %H:%M:%S'),    
+                        offset_value,                             
+                        p_in_local.strftime('%Y-%m-%d %H:%M:%S'),  
+                        p_out_utc.strftime('%Y-%m-%d %H:%M:%S'),   
+                        offset_value,                              
+                        p_out_local.strftime('%Y-%m-%d %H:%M:%S')  
+                    ))
+                except mysql.connector.Error as err:
+                    if err.errno != 1062:
+                        print(f"[LỖI DB] Emp {emp_id}: {err}")
 
         conn.commit()
         cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
