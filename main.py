@@ -23,16 +23,20 @@ def main():
 ║     KTPM - GENERATE ALL TEST DATA FOR ORANGEHRM          ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Thứ tự chạy:                                            ║
-║  1. generate_dim.py        (Nhân viên, Users)            ║
-║  2. generate_hr_admin.py   (HR Admin data)               ║
-║  3. generate_time_attendance.py (Time & Attendance)      ║
-║  4. generate_performance.py (Performance Management)     ║
+║  1. generate_dim.py           (Nhân viên, Users)         ║
+║  2. generate_hr_admin.py      (HR Admin data)            ║
+║  3. generate_leave.py         (Leave Management)         ║
+║  4. generate_recruitment.py   (Recruitment/ATS)          ║
+║  5. generate_time_attendance.py (Time & Attendance)      ║
+║  6. generate_performance.py   (Performance Management)   ║
 ╚══════════════════════════════════════════════════════════╝
     """)
     
     scripts = [
         'generate_dim.py',           # Phải chạy trước - tạo nhân viên
         'generate_hr_admin.py',      # Cần emp_number
+        'generate_leave.py',         # Cần emp_number + leave types
+        'generate_recruitment.py',   # Cần emp_number + job_title
         'generate_time_attendance.py', # Cần emp_number + job_title
         'generate_performance.py',   # Cần emp_number + user_id
     ]

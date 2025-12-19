@@ -63,8 +63,47 @@ def reset_all_data():
             except Exception as e:
                 print(f"   ✗ Lỗi xóa {table}: {e}")
         
+        # === LEAVE MODULE ===
+        print("\n[3/6] Xóa dữ liệu Leave Management...")
+        leave_tables = [
+            'ohrm_leave_comment',
+            'ohrm_leave_request_comment',
+            'ohrm_leave',
+            'ohrm_leave_request',
+            'ohrm_leave_entitlement',
+            'ohrm_leave_type',
+            'ohrm_leave_period_history',
+            'ohrm_leave_status',
+        ]
+        for table in leave_tables:
+            try:
+                cursor.execute(f"DELETE FROM {table}")
+                print(f"   ✓ Đã xóa {table}")
+            except Exception as e:
+                print(f"   ✗ Lỗi xóa {table}: {e}")
+        
+        # === RECRUITMENT MODULE ===
+        print("\n[4/6] Xóa dữ liệu Recruitment...")
+        recruitment_tables = [
+            'ohrm_job_interview_attachment',      
+            'ohrm_job_interview_interviewer',     
+            'ohrm_job_interview',                 
+            'ohrm_job_candidate_history',         
+            'ohrm_job_candidate_attachment',      
+            'ohrm_job_candidate_vacancy',         
+            'ohrm_job_candidate',                 
+            'ohrm_job_vacancy_attachment',        
+            'ohrm_job_vacancy',                   
+        ]
+        for table in recruitment_tables:
+            try:
+                cursor.execute(f"DELETE FROM {table}")
+                print(f"   ✓ Đã xóa {table}")
+            except Exception as e:
+                print(f"   ✗ Lỗi xóa {table}: {e}")
+        
         # === HR ADMIN MODULE ===
-        print("\n[3/4] Xóa dữ liệu HR Administration...")
+        print("\n[5/6] Xóa dữ liệu HR Administration...")
         hr_admin_tables = [
             # Employee assignments
             'hs_hr_emp_skill',
@@ -94,7 +133,7 @@ def reset_all_data():
                 print(f"   ✗ Lỗi xóa {table}: {e}")
         
         # === PIM / EMPLOYEES ===
-        print("\n[4/4] Xóa dữ liệu Employees...")
+        print("\n[6/6] Xóa dữ liệu Employees...")
         employee_tables = [
             'ohrm_user',
             'hs_hr_employee',
