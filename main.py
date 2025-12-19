@@ -27,6 +27,8 @@ def main():
 ║  2. generate_hr_admin.py   (HR Admin data)               ║
 ║  3. generate_time_attendance.py (Time & Attendance)      ║
 ║  4. generate_performance.py (Performance Management)     ║
+║  5. generate_reporting.py   (Reporting & Analytics)      ║
+║  6. generate_ess.py         (Employee Self-Service)      ║
 ╚══════════════════════════════════════════════════════════╝
     """)
     
@@ -35,6 +37,8 @@ def main():
         'generate_hr_admin.py',      # Cần emp_number
         'generate_time_attendance.py', # Cần emp_number + job_title
         'generate_performance.py',   # Cần emp_number + user_id
+        'generate_reporting.py',     # Báo cáo & xuất file
+        'generate_ess.py',           # ESS (cố gắng chèn hoặc xuất file)
     ]
     
     success_count = 0

@@ -12,3 +12,6 @@ venv
 docs/Data_Generation_Report.md
 docs/Data_Generation_Report.pdf
 docs/*.pdf
+
+# Python cache
+**/__pycache__/
