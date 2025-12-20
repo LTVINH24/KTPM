@@ -461,6 +461,64 @@ def generate_leave_data():
         
         print(f"   Đã tạo {len(LEAVE_STATUSES)} Leave Status records")
 
+        # ===== BƯỚC 8: TẠO LEAVE ENTITLEMENT TYPES =====
+        print("\n[BƯỚC 8] Đang tạo Leave Entitlement Types...")
+        
+        # Tạo các loại entitlement type 
+        entitlement_types = [
+            (1, 'Annual Allocation', False),
+            (2, 'Leave Brought Forward', False),
+            (3, 'Manual Adjustment', True)
+        ]
+        
+        entitlement_type_count = 0
+        for type_id, type_name, is_editable in entitlement_types:
+            cursor.execute("""
+                INSERT IGNORE INTO ohrm_leave_entitlement_type (id, name, is_editable)
+                VALUES (%s, %s, %s)
+            """, (type_id, type_name, is_editable))
+            entitlement_type_count += 1
+        
+        print(f"   Đã tạo {entitlement_type_count} Leave Entitlement Types")
+
+        # ===== BƯỚC 9: LIÊN KẾT LEAVE VỚI ENTITLEMENT =====
+        print("\n[BƯỚC 9] Đang liên kết Leave với Entitlement...")
+        
+        # Lấy tất cả leave records đã được approved/taken
+        cursor.execute("""
+            SELECT l.id, l.emp_number, l.leave_type_id, l.date, l.length_days
+            FROM ohrm_leave l
+            WHERE l.status IN (4, 5)
+        """)
+        
+        leave_records = cursor.fetchall()
+        leave_entitlement_count = 0
+        
+        for leave_id, emp_num, lt_id, leave_date, length_days in leave_records:
+            # Tìm entitlement phù hợp cho leave này
+            cursor.execute("""
+                SELECT id FROM ohrm_leave_entitlement
+                WHERE emp_number = %s
+                AND leave_type_id = %s
+                AND %s BETWEEN from_date AND to_date
+                AND deleted = 0
+                LIMIT 1
+            """, (emp_num, lt_id, leave_date))
+            
+            entitlement = cursor.fetchone()
+            if entitlement:
+                entitlement_id = entitlement[0]
+                
+                # Tạo liên kết
+                cursor.execute("""
+                    INSERT IGNORE INTO ohrm_leave_leave_entitlement
+                    (leave_id, entitlement_id, length_days)
+                    VALUES (%s, %s, %s)
+                """, (leave_id, entitlement_id, length_days))
+                leave_entitlement_count += 1
+        
+        print(f"   Đã tạo {leave_entitlement_count} Leave-Entitlement links")
+
         # ===== LƯU DỮ LIỆU VÀ TỔNG KẾT =====
         conn.commit()
         cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
@@ -470,11 +528,14 @@ def generate_leave_data():
         print("=" * 50)
         print(f"THỐNG KÊ:")
         print(f"   • Leave Types: {len(leave_type_map)}")
+        print(f"   • Leave Entitlement Types: {entitlement_type_count}")
         print(f"   • Employees Processed: {len(employees)}")
         print(f"   • Leave Entitlements: {entitlement_count}")
         print(f"   • Leave Requests: {leave_request_count}")
         print(f"   • Leave Days: {leave_day_count}")
+        print(f"   • Leave-Entitlement Links: {leave_entitlement_count}")
         print(f"   • Comments: {comment_count}")
+        print(f"   • Leave Statuses: {len(LEAVE_STATUSES)}")
         print("=" * 50)
         
         # Hiển thị dữ liệu mẫu từ database

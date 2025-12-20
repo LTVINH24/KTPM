@@ -282,6 +282,45 @@ def generate_recruitment_data():
         vacancy_count = len(vacancies)
         print(f"   Đã tạo {vacancy_count} Job Vacancies")
         
+        # ===== BƯỚC 2.5: TẠO JOB VACANCY ATTACHMENTS =====
+        print("\n[BƯỚC 2.5] Đang tạo Job Vacancy Attachments...")
+        
+        vacancy_attachment_count = 0
+        
+        # Tạo tài liệu cho một số vacancies (70% vacancies có attachment)
+        for vacancy in vacancies:
+            if random.random() < 0.7:
+                # Tạo Job Description document
+                cursor.execute("""
+                    INSERT INTO ohrm_job_vacancy_attachment
+                    (vacancy_id, file_name, file_type, file_size, attachment_type, comment)
+                    VALUES (%s, %s, %s, %s, 1, %s)
+                """, (
+                    vacancy['id'],
+                    f"JD_{vacancy['name'].replace(' ', '_')[:30]}.pdf",
+                    'application/pdf',
+                    random.randint(50, 200),
+                    'Job Description & Requirements'
+                ))
+                vacancy_attachment_count += 1
+                
+                # 30% vacancies có thêm Company Presentation
+                if random.random() < 0.3:
+                    cursor.execute("""
+                        INSERT INTO ohrm_job_vacancy_attachment
+                        (vacancy_id, file_name, file_type, file_size, attachment_type, comment)
+                        VALUES (%s, %s, %s, %s, 2, %s)
+                    """, (
+                        vacancy['id'],
+                        f"Company_Presentation_{datetime.now().year}.pptx",
+                        'application/vnd.ms-powerpoint',
+                        random.randint(500, 1500),
+                        'Company Introduction for Candidates'
+                    ))
+                    vacancy_attachment_count += 1
+        
+        print(f"   Đã tạo {vacancy_attachment_count} Vacancy Attachments")
+        
         # ===== BƯỚC 3: TẠO CANDIDATES =====
         print("\n[BƯỚC 3] Đang tạo Candidates...")
         
@@ -498,9 +537,11 @@ def generate_recruitment_data():
                     interview_id = cursor.lastrowid
                     interviews.append({
                         'id': interview_id,
+                        'candidate': candidate,  # Thêm thông tin candidate
                         'candidate_id': candidate['id'],
                         'candidate_vacancy_id': application['id'],
                         'interview_name': interview_name,
+                        'round_name': interview_name,  # Thêm round_name
                         'interview_date': interview_date,
                         'vacancy': application['vacancy']
                     })
@@ -545,6 +586,47 @@ def generate_recruitment_data():
                 interviewer_count += 1
         
         print(f"   Đã assign {interviewer_count} Interviewers")
+        
+        # ===== BƯỚC 7.5: TẠO INTERVIEW ATTACHMENTS =====
+        print("\n[BƯỚC 7.5] Đang tạo Interview Attachments...")
+        
+        interview_attachment_count = 0
+        
+        # Tạo tài liệu cho các buổi phỏng vấn (50% interviews có attachment)
+        for interview in interviews:
+            if random.random() < 0.5:
+                candidate = interview['candidate']
+                
+                # Tạo Interview Evaluation Form
+                cursor.execute("""
+                    INSERT INTO ohrm_job_interview_attachment
+                    (interview_id, file_name, file_type, file_size, attachment_type, comment)
+                    VALUES (%s, %s, %s, %s, 1, %s)
+                """, (
+                    interview['id'],
+                    f"Interview_Eval_{candidate['last_name']}_{interview['round_name'][:10]}.pdf",
+                    'application/pdf',
+                    random.randint(20, 100),
+                    'Interview Evaluation Form'
+                ))
+                interview_attachment_count += 1
+                
+                # 40% technical interviews có thêm coding test results
+                if 'Technical' in interview['round_name'] and random.random() < 0.4:
+                    cursor.execute("""
+                        INSERT INTO ohrm_job_interview_attachment
+                        (interview_id, file_name, file_type, file_size, attachment_type, comment)
+                        VALUES (%s, %s, %s, %s, 2, %s)
+                    """, (
+                        interview['id'],
+                        f"Coding_Test_Result_{candidate['last_name']}.txt",
+                        'text/plain',
+                        random.randint(5, 30),
+                        'Technical Assessment Results'
+                    ))
+                    interview_attachment_count += 1
+        
+        print(f"   Đã tạo {interview_attachment_count} Interview Attachments")
         
         # ===== BƯỚC 8: TẠO LỊCH SỬ ỨNG VIÊN =====
         print("\n[BƯỚC 8] Đang tạo Candidate History (Audit Trail)...")
@@ -712,10 +794,12 @@ def generate_recruitment_data():
         print("=" * 50)
         print(f"THỐNG KÊ:")
         print(f"   • Job Vacancies: {vacancy_count}")
+        print(f"   • Vacancy Attachments: {vacancy_attachment_count}")
         print(f"   • Candidates: {candidate_count}")
+        print(f"   • Candidate Attachments (CV): {attachment_count}")
         print(f"   • Applications: {application_count}")
-        print(f"   • Attachments: {attachment_count}")
         print(f"   • Interviews: {interview_count}")
+        print(f"   • Interview Attachments: {interview_attachment_count}")
         print(f"   • Interviewers: {interviewer_count}")
         print(f"   • History Records: {history_count}")
         print("=" * 50)

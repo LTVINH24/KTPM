@@ -68,9 +68,11 @@ def reset_all_data():
         leave_tables = [
             'ohrm_leave_comment',
             'ohrm_leave_request_comment',
+            'ohrm_leave_leave_entitlement',    # Phải xóa trước ohrm_leave
             'ohrm_leave',
             'ohrm_leave_request',
             'ohrm_leave_entitlement',
+            'ohrm_leave_entitlement_type',     # Master data - loại entitlement
             'ohrm_leave_type',
             'ohrm_leave_period_history',
             'ohrm_leave_status',
