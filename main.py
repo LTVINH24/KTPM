@@ -31,10 +31,8 @@ def main():
     """)
     
     scripts = [
-        'generate_dim.py',           # Phải chạy trước - tạo nhân viên
-        'generate_hr_admin.py',      # Cần emp_number
-        'generate_time_attendance.py', # Cần emp_number + job_title
-        'generate_performance.py',   # Cần emp_number + user_id
+        'generate_dim.py',           
+        'generate_time_attendance.py', 
     ]
     
     success_count = 0

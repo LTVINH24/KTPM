@@ -50,6 +50,7 @@ def reset_all_data():
         time_tables = [
             'ohrm_attendance_record',
             'ohrm_timesheet_item',
+            'ohrm_timesheet_action_log',
             'ohrm_timesheet',
             'ohrm_project_activity',
             'ohrm_project_admin',
