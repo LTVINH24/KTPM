@@ -6,7 +6,6 @@ import random
 import csv
 from datetime import datetime
 
-# --- CẤU HÌNH ---
 load_dotenv()
 fake = Faker('vi_VN')
 DB_CONFIG = {
@@ -31,48 +30,45 @@ def generate_reporting_data():
     print("="*50)
 
     try:
-        # BƯỚC PHỤ: Lấy danh sách ID nhân viên để làm Hiring Manager
-        print("-> Đang lấy danh sách nhân viên làm Hiring Manager...")
+        # Lấy nhân viên làm Hiring Manager
+        print("-> Đang lấy danh sách Hiring Manager...")
         cursor.execute("SELECT emp_number FROM hs_hr_employee")
         emp_rows = cursor.fetchall()
         emp_ids = [r[0] for r in emp_rows]
         
         if not emp_ids:
-            print("LỖI: Không tìm thấy nhân viên nào để làm Hiring Manager. Hãy chạy generate_dim.py trước.")
+            print("LỖI: Chưa có nhân viên (generate_dim).")
             return
 
-        # 1. TẠO JOB VACANCY (VỊ TRÍ TUYỂN DỤNG)
-        print("-> Đang kiểm tra Job Titles...")
+        # 1. VACANCIES (Vị trí tuyển dụng)
+        print("-> (1/3) Tạo Vacancies...")
         cursor.execute("SELECT id, job_title FROM ohrm_job_title WHERE is_deleted=0")
         titles = cursor.fetchall()
         
         vacancy_ids = []
         if titles:
-            print(f"-> Tìm thấy {len(titles)} chức danh. Đang tạo Vacancy...")
             for t_id, t_name in titles:
-                # Kiểm tra xem vacancy đã có chưa
                 cursor.execute("SELECT id FROM ohrm_job_vacancy WHERE job_title_code=%s", (t_id,))
                 res = cursor.fetchone()
                 if res:
                     vacancy_ids.append(res[0])
                 else:
-                    # === FIX: Chọn Hiring Manager ngẫu nhiên ===
                     hiring_manager_id = random.choice(emp_ids)
-                    
                     sql_vac = """
                         INSERT INTO ohrm_job_vacancy 
                         (job_title_code, name, status, description, defined_time, updated_time, hiring_manager_id)
                         VALUES (%s, %s, 1, %s, NOW(), NOW(), %s)
                     """
-                    vac_name = f"Senior {t_name}"
-                    cursor.execute(sql_vac, (t_id, vac_name, f"Looking for experienced {t_name}", hiring_manager_id))
+                    cursor.execute(sql_vac, (t_id, f"Senior {t_name}", f"Looking for {t_name}", hiring_manager_id))
                     vacancy_ids.append(cursor.lastrowid)
-        else:
-            print("Cảnh báo: Không có Job Title nào. Hãy chạy generate_dim.py trước.")
 
-        # 2. TẠO CANDIDATES (ỨNG VIÊN)
-        print("-> Đang tạo hồ sơ ứng viên (Candidates)...")
+        # 2. CANDIDATES (Ứng viên) - Nâng cấp: Đa dạng trạng thái
+        print("-> (2/3) Tạo Candidates với nhiều trạng thái (để test Filter)...")
         candidates_data = []
+        
+        # Danh sách trạng thái để test filtering
+        # Lưu ý: Các string này cần khớp với config của OHRM, nếu không dùng ID mặc định 'APPLICATION INITIATED'
+        # Ở đây ta giả lập bằng cách gán vào cột comment hoặc tạo nhiều bản ghi
         
         for _ in range(30): 
             first = fake.first_name()
@@ -81,66 +77,64 @@ def generate_reporting_data():
             phone = fake.phone_number()
             date_app = fake.date_between(start_date='-3m', end_date='today')
             
-            # Status: 1=Active
+            # Insert Candidate Profile
             sql_cand = """
                 INSERT INTO ohrm_job_candidate 
                 (first_name, last_name, email, contact_number, date_of_application, status, comment, mode_of_application)
                 VALUES (%s, %s, %s, %s, %s, 1, %s, 1)
             """
-            cursor.execute(sql_cand, (first, last, email, phone, date_app, fake.sentence()))
+            cursor.execute(sql_cand, (first, last, email, phone, date_app, "Generated for Testing"))
             cand_id = cursor.lastrowid
             
             vac_name = "N/A"
+            status_text = "APPLICATION INITIATED"
+            
             if vacancy_ids:
                 vac_id = random.choice(vacancy_ids)
-                # Gán ứng viên vào Vacancy
+                # Random trạng thái quy trình tuyển dụng
+                # Các status phổ biến: APPLICATION INITIATED, SHORTLISTED, SCHEDULED INTERVIEW, HIRED, REJECTED
+                status_text = random.choice(['APPLICATION INITIATED', 'SHORTLISTED', 'HIRED', 'REJECTED'])
+                
                 try:
-                    cursor.execute("INSERT INTO ohrm_job_candidate_vacancy (candidate_id, vacancy_id, status, applied_date) VALUES (%s, %s, 'APPLICATION INITIATED', %s)", 
-                                   (cand_id, vac_id, date_app))
+                    cursor.execute("INSERT INTO ohrm_job_candidate_vacancy (candidate_id, vacancy_id, status, applied_date) VALUES (%s, %s, %s, %s)", 
+                                   (cand_id, vac_id, status_text, date_app))
                     vac_name = str(vac_id)
-                except:
-                    pass
+                except: pass
 
             candidates_data.append({
-                'Candidate ID': cand_id,
+                'ID': cand_id,
                 'Name': f"{first} {last}",
-                'Email': email,
-                'Applied Date': date_app,
+                'Status': status_text, # Quan trọng cho báo cáo
                 'Vacancy ID': vac_name
             })
 
         conn.commit()
-        print(f"   Đã tạo {len(candidates_data)} ứng viên.")
+        print(f"   => Đã tạo {len(candidates_data)} ứng viên.")
 
-        # 3. XUẤT BÁO CÁO CSV
-        write_csv(candidates_data, "reporting_candidates.csv")
+        # 3. EXPORT EVIDENCE
+        print("-> (3/3) Xuất dữ liệu chứng minh...")
+        path = os.path.join(EXPORT_DIR, "reporting_candidates.csv")
+        with open(path, 'w', newline='', encoding='utf-8') as f:
+            keys = candidates_data[0].keys()
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(candidates_data)
         
-        # Lấy dữ liệu nhân viên để làm báo cáo
-        cursor.execute("""
-            SELECT e.emp_number, e.emp_lastname, e.emp_firstname, j.job_title, l.name as location
-            FROM hs_hr_employee e
-            LEFT JOIN ohrm_job_title j ON e.job_title_code = j.id
-            LEFT JOIN hs_hr_emp_locations el ON e.emp_number = el.emp_number
-            LEFT JOIN ohrm_location l ON el.location_id = l.id
-        """)
+        # Xuất thêm danh sách nhân viên để test Employee Report
+        cursor.execute("SELECT emp_number, emp_lastname, emp_firstname FROM hs_hr_employee LIMIT 20")
         emp_rows = cursor.fetchall()
-        emp_csv_data = [{'ID': r[0], 'Name': f"{r[1]} {r[2]}", 'Job': r[3], 'Location': r[4]} for r in emp_rows]
-        write_csv(emp_csv_data, "reporting_existing_employees.csv")
+        with open(os.path.join(EXPORT_DIR, "reporting_employees.csv"), 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['ID', 'Name'])
+            for r in emp_rows:
+                writer.writerow([r[0], f"{r[1]} {r[2]}"])
+                
+        print(f"-> File báo cáo: {path}")
 
     except mysql.connector.Error as err:
         print(f"Lỗi MySQL: {err}")
     finally:
         if conn: conn.close()
-
-def write_csv(data_list, filename):
-    if not data_list: return
-    path = os.path.join(EXPORT_DIR, filename)
-    with open(path, 'w', newline='', encoding='utf-8') as f:
-        keys = data_list[0].keys()
-        writer = csv.DictWriter(f, fieldnames=keys)
-        writer.writeheader()
-        writer.writerows(data_list)
-    print(f"-> Exported: {path}")
 
 if __name__ == "__main__":
     generate_reporting_data()
