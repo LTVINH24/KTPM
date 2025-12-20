@@ -41,7 +41,7 @@ cp .env.example .env
 python main.py
 ```
 
-### Cách 2: Chạy từng script
+### Cách 2: Chạy từng script (deprecated)
 
 ```bash
 # Bước 1: Tạo nhân viên (BẮT BUỘC chạy trước)
@@ -49,8 +49,8 @@ python generate_dim.py
 
 # Bước 2-4: Chạy theo thứ tự bất kỳ
 python generate_hr_admin.py
-python generate_time_attendance.py
-python generate_performance.py
+python generate_reporting.py
+python generate_ess.py
 ```
 
 ### Sửa lỗi Authentication (nếu cần)
@@ -68,15 +68,15 @@ docker exec -it orangehrm-mysql mysql -uroot -proot -e "ALTER USER 'orangehrm'@'
 | `main.py` | Chạy tất cả scripts |
 | `generate_dim.py` | Tạo nhân viên, users |
 | `generate_hr_admin.py` | Tạo HR Admin data |
-| `generate_time_attendance.py` | Tạo Time & Attendance |
-| `generate_performance.py` | Tạo Performance data |
+| `generate_reporting.py` | Tạo báo cáo |
+| `generate_ess.py` | Tạo dữ liệu cho người dùng |
 
 ---
 
 ## 📖 Tài liệu chi tiết
 
-- [Database_Tables_Reference.md](docs/Database_Tables_Reference.md) - Phân loại bảng theo module
-- [Generated_Tables_Summary.md](docs/Generated_Tables_Summary.md) - Tóm tắt dữ liệu được tạo
+- [Requirement 2](docs/markdown/REQUIREMENT_2_REPORT_DATA_GENERATION.md) - Phân loại bảng theo module
+- [Requirement 3](docs/markdown/REQUIREMENT_3_FUNCTIONAL_TESTING.md) - Tóm tắt dữ liệu được tạo
 
 ---
 
