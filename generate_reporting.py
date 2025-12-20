@@ -1,118 +1,14 @@
 import os
 import mysql.connector
 from dotenv import load_dotenv
-import sys
-from datetime import datetime, timedelta
 from faker import Faker
 import random
+import csv
+from datetime import datetime
 
-# Inline generator functions (previously in tools/data_generator.py)
-fake = Faker('vi_VN')
-
-
-def generate_employees(n=50, start_emp=1000):
-    rows = []
-    for i in range(n):
-        emp_number = start_emp + i
-        gender = random.choice(['Male', 'Female'])
-        if gender == 'Male':
-            firstname = fake.first_name_male()
-            middle = random.choice(['Văn', 'Hữu', 'Đức'])
-        else:
-            firstname = fake.first_name_female()
-            middle = random.choice(['Thị', 'Ngọc', 'Thu'])
-        lastname = fake.last_name()
-        username = f"{fake.user_name()}{random.randint(10,99)}"
-        email = f"{username}@orangehrm.com"
-        job_title = random.choice(['Director','Manager','Staff'])
-        joined = fake.date_between(start_date='-5y', end_date='today')
-        salary = random.randint(5000000, 100000000)
-
-        rows.append({
-            'emp_number': emp_number,
-            'employee_id': f'EMP{emp_number:04d}',
-            'last_name': lastname,
-            'first_name': firstname,
-            'middle_name': middle,
-            'gender': gender,
-            'job_title': job_title,
-            'joined_date': str(joined),
-            'work_email': email,
-            'username': username,
-            'salary_vnd': salary
-        })
-    return rows
-
-
-def generate_leave_requests(employees, pct=0.2):
-    rows = []
-    leave_types = ['Annual', 'Sick', 'Unpaid', 'Maternity']
-    for emp in random.sample(employees, max(1, int(len(employees)*pct))):
-        num = random.randint(1, 4)
-        for _ in range(num):
-            start = fake.date_between(start_date='-1y', end_date='today')
-            length = random.randint(1, 14)
-            end = (datetime.strptime(str(start), '%Y-%m-%d') + timedelta(days=length-1)).date()
-            status = random.choice(['Pending','Approved','Rejected'])
-            rows.append({
-                'emp_number': emp['emp_number'],
-                'leave_type': random.choice(leave_types),
-                'date_from': str(start),
-                'date_to': str(end),
-                'days': length,
-                'status': status,
-                'comments': fake.sentence(nb_words=6)
-            })
-    return rows
-
-
-def generate_timesheets(employees, weeks=4):
-    rows = []
-    today = datetime.now().date()
-    for emp in employees:
-        for w in range(weeks):
-            start = today - timedelta(days=today.weekday() + 7*(w+1))
-            for d in range(5):
-                work_date = start + timedelta(days=d)
-                duration_hours = random.choice([8,8.5,9])
-                rows.append({
-                    'emp_number': emp['emp_number'],
-                    'date': str(work_date),
-                    'duration_hours': duration_hours,
-                    'project': random.choice(['Super App','E-Banking Web','HRM System','Internal'])
-                })
-    return rows
-
-
-def generate_recruitment_candidates(n=20):
-    rows = []
-    positions = ['Software Engineer','QA Engineer','Product Manager','Business Analyst']
-    for i in range(n):
-        app_date = fake.date_between(start_date='-6M', end_date='today')
-        rows.append({
-            'candidate_name': fake.name(),
-            'email': fake.email(),
-            'applied_for': random.choice(positions),
-            'applied_date': str(app_date),
-            'status': random.choice(['New','Phone Screen','Interview','Hired','Rejected'])
-        })
-    return rows
-
-
-def generate_all(n_employees=50):
-    employees = generate_employees(n_employees)
-    leaves = generate_leave_requests(employees)
-    timesheets = generate_timesheets(employees)
-    candidates = generate_recruitment_candidates(n=20)
-    return {
-        'employees': employees,
-        'leaves': leaves,
-        'timesheets': timesheets,
-        'candidates': candidates
-    }
-
-# Load env
+# --- CẤU HÌNH ---
 load_dotenv()
+fake = Faker('vi_VN')
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
     'user': os.getenv('DB_USER', 'orangehrm'),
@@ -121,83 +17,130 @@ DB_CONFIG = {
     'port': int(os.getenv('DB_PORT', 3306))
 }
 
+EXPORT_DIR = os.path.join(os.path.dirname(__file__), 'exports')
+os.makedirs(EXPORT_DIR, exist_ok=True)
 
 def connect_db():
     return mysql.connector.connect(**DB_CONFIG)
 
+def generate_reporting_data():
+    conn = connect_db()
+    cursor = conn.cursor()
+    print("="*50)
+    print("GENERATE REPORTING & RECRUITMENT DATA")
+    print("="*50)
 
-def insert_employees(cursor, employees):
-    sql = (
-        "INSERT IGNORE INTO hs_hr_employee "
-        "(emp_number, employee_id, emp_lastname, emp_firstname, emp_middle_name, emp_work_email, joined_date) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s)"
-    )
-    for e in employees:
-        try:
-            cursor.execute(sql, (
-                e['emp_number'], e['employee_id'], e['last_name'], e['first_name'], e['middle_name'], e['work_email'], e['joined_date']
-            ))
-        except Exception:
-            pass
-
-
-def insert_leaves(cursor, leaves):
-    sql = (
-        "INSERT IGNORE INTO ohrm_leave_request (emp_number, date_from, date_to, comments, status) VALUES (%s,%s,%s,%s,%s)"
-    )
-    for l in leaves:
-        try:
-            cursor.execute(sql, (l['emp_number'], l['date_from'], l['date_to'], l['comments'], l['status']))
-        except Exception:
-            pass
-
-
-def insert_attendance(cursor, timesheets):
-    sql = (
-        "INSERT IGNORE INTO ohrm_attendance_record (employee_id, punch_in_user_time, punch_out_user_time, state) VALUES (%s,%s,%s,%s)"
-    )
-    for t in timesheets:
-        try:
-            cursor.execute(sql, (t['emp_number'], t['date'] + ' 09:00:00', t['date'] + ' 17:00:00', 'PUNCHED OUT'))
-        except Exception:
-            pass
-
-
-def insert_candidates(cursor, candidates):
-    sql = (
-        "INSERT IGNORE INTO ohrm_job_candidate (name, email, applied_for, applied_date, status) VALUES (%s,%s,%s,%s,%s)"
-    )
-    for c in candidates:
-        try:
-            cursor.execute(sql, (c['candidate_name'], c['email'], c['applied_for'], c['applied_date'], c['status']))
-        except Exception:
-            pass
-
-
-def run_reports(seed_n=50):
-    # Create sample data and insert into DB (fail if DB not available)
-    data = generate_all(seed_n)
     try:
-        conn = connect_db()
-        cursor = conn.cursor()
-        print('Connected to DB — inserting reporting sample data')
+        # BƯỚC PHỤ: Lấy danh sách ID nhân viên để làm Hiring Manager
+        print("-> Đang lấy danh sách nhân viên làm Hiring Manager...")
+        cursor.execute("SELECT emp_number FROM hs_hr_employee")
+        emp_rows = cursor.fetchall()
+        emp_ids = [r[0] for r in emp_rows]
+        
+        if not emp_ids:
+            print("LỖI: Không tìm thấy nhân viên nào để làm Hiring Manager. Hãy chạy generate_dim.py trước.")
+            return
 
-        insert_employees(cursor, data['employees'])
-        insert_leaves(cursor, data['leaves'])
-        insert_attendance(cursor, data['timesheets'])
-        insert_candidates(cursor, data['candidates'])
+        # 1. TẠO JOB VACANCY (VỊ TRÍ TUYỂN DỤNG)
+        print("-> Đang kiểm tra Job Titles...")
+        cursor.execute("SELECT id, job_title FROM ohrm_job_title WHERE is_deleted=0")
+        titles = cursor.fetchall()
+        
+        vacancy_ids = []
+        if titles:
+            print(f"-> Tìm thấy {len(titles)} chức danh. Đang tạo Vacancy...")
+            for t_id, t_name in titles:
+                # Kiểm tra xem vacancy đã có chưa
+                cursor.execute("SELECT id FROM ohrm_job_vacancy WHERE job_title_code=%s", (t_id,))
+                res = cursor.fetchone()
+                if res:
+                    vacancy_ids.append(res[0])
+                else:
+                    # === FIX: Chọn Hiring Manager ngẫu nhiên ===
+                    hiring_manager_id = random.choice(emp_ids)
+                    
+                    sql_vac = """
+                        INSERT INTO ohrm_job_vacancy 
+                        (job_title_code, name, status, description, defined_time, updated_time, hiring_manager_id)
+                        VALUES (%s, %s, 1, %s, NOW(), NOW(), %s)
+                    """
+                    vac_name = f"Senior {t_name}"
+                    cursor.execute(sql_vac, (t_id, vac_name, f"Looking for experienced {t_name}", hiring_manager_id))
+                    vacancy_ids.append(cursor.lastrowid)
+        else:
+            print("Cảnh báo: Không có Job Title nào. Hãy chạy generate_dim.py trước.")
+
+        # 2. TẠO CANDIDATES (ỨNG VIÊN)
+        print("-> Đang tạo hồ sơ ứng viên (Candidates)...")
+        candidates_data = []
+        
+        for _ in range(30): 
+            first = fake.first_name()
+            last = fake.last_name()
+            email = f"{first.lower()}.{last.lower()}.{random.randint(10,99)}@example.com"
+            phone = fake.phone_number()
+            date_app = fake.date_between(start_date='-3m', end_date='today')
+            
+            # Status: 1=Active
+            sql_cand = """
+                INSERT INTO ohrm_job_candidate 
+                (first_name, last_name, email, contact_number, date_of_application, status, comment, mode_of_application)
+                VALUES (%s, %s, %s, %s, %s, 1, %s, 1)
+            """
+            cursor.execute(sql_cand, (first, last, email, phone, date_app, fake.sentence()))
+            cand_id = cursor.lastrowid
+            
+            vac_name = "N/A"
+            if vacancy_ids:
+                vac_id = random.choice(vacancy_ids)
+                # Gán ứng viên vào Vacancy
+                try:
+                    cursor.execute("INSERT INTO ohrm_job_candidate_vacancy (candidate_id, vacancy_id, status, applied_date) VALUES (%s, %s, 'APPLICATION INITIATED', %s)", 
+                                   (cand_id, vac_id, date_app))
+                    vac_name = str(vac_id)
+                except:
+                    pass
+
+            candidates_data.append({
+                'Candidate ID': cand_id,
+                'Name': f"{first} {last}",
+                'Email': email,
+                'Applied Date': date_app,
+                'Vacancy ID': vac_name
+            })
 
         conn.commit()
-        cursor.close()
-        conn.close()
-        print('Inserted reporting sample data into DB')
-    except Exception as e:
-        print('DB unavailable or error while inserting reporting data:', e)
-        sys.exit(1)
+        print(f"   Đã tạo {len(candidates_data)} ứng viên.")
 
+        # 3. XUẤT BÁO CÁO CSV
+        write_csv(candidates_data, "reporting_candidates.csv")
+        
+        # Lấy dữ liệu nhân viên để làm báo cáo
+        cursor.execute("""
+            SELECT e.emp_number, e.emp_lastname, e.emp_firstname, j.job_title, l.name as location
+            FROM hs_hr_employee e
+            LEFT JOIN ohrm_job_title j ON e.job_title_code = j.id
+            LEFT JOIN hs_hr_emp_locations el ON e.emp_number = el.emp_number
+            LEFT JOIN ohrm_location l ON el.location_id = l.id
+        """)
+        emp_rows = cursor.fetchall()
+        emp_csv_data = [{'ID': r[0], 'Name': f"{r[1]} {r[2]}", 'Job': r[3], 'Location': r[4]} for r in emp_rows]
+        write_csv(emp_csv_data, "reporting_existing_employees.csv")
 
-if __name__ == '__main__':
-    print('='*50)
-    print('GENERATE REPORTING & ANALYTICS DATA (DB only)')
-    print('='*50)
-    run_reports(50)
+    except mysql.connector.Error as err:
+        print(f"Lỗi MySQL: {err}")
+    finally:
+        if conn: conn.close()
+
+def write_csv(data_list, filename):
+    if not data_list: return
+    path = os.path.join(EXPORT_DIR, filename)
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        keys = data_list[0].keys()
+        writer = csv.DictWriter(f, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(data_list)
+    print(f"-> Exported: {path}")
+
+if __name__ == "__main__":
+    generate_reporting_data()

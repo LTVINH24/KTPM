@@ -1,90 +1,14 @@
 import os
 import mysql.connector
 from dotenv import load_dotenv
-import sys
 from datetime import datetime, timedelta
 from faker import Faker
 import random
+import csv
 
+# --- CẤU HÌNH ---
 load_dotenv()
-
-# Inline generator functions (previously in tools/data_generator.py)
 fake = Faker('vi_VN')
-
-
-def generate_employees(n=50, start_emp=1000):
-    rows = []
-    for i in range(n):
-        emp_number = start_emp + i
-        gender = random.choice(['Male', 'Female'])
-        if gender == 'Male':
-            firstname = fake.first_name_male()
-            middle = random.choice(['Văn', 'Hữu', 'Đức'])
-        else:
-            firstname = fake.first_name_female()
-            middle = random.choice(['Thị', 'Ngọc', 'Thu'])
-        lastname = fake.last_name()
-        username = f"{fake.user_name()}{random.randint(10,99)}"
-        email = f"{username}@orangehrm.com"
-        job_title = random.choice(['Director','Manager','Staff'])
-        joined = fake.date_between(start_date='-5y', end_date='today')
-        salary = random.randint(5000000, 100000000)
-
-        rows.append({
-            'emp_number': emp_number,
-            'employee_id': f'EMP{emp_number:04d}',
-            'last_name': lastname,
-            'first_name': firstname,
-            'middle_name': middle,
-            'gender': gender,
-            'job_title': job_title,
-            'joined_date': str(joined),
-            'work_email': email,
-            'username': username,
-            'salary_vnd': salary
-        })
-    return rows
-
-
-def generate_leave_requests(employees, pct=0.2):
-    rows = []
-    leave_types = ['Annual', 'Sick', 'Unpaid', 'Maternity']
-    for emp in random.sample(employees, max(1, int(len(employees)*pct))):
-        num = random.randint(1, 4)
-        for _ in range(num):
-            start = fake.date_between(start_date='-1y', end_date='today')
-            length = random.randint(1, 14)
-            end = (datetime.strptime(str(start), '%Y-%m-%d') + timedelta(days=length-1)).date()
-            status = random.choice(['Pending','Approved','Rejected'])
-            rows.append({
-                'emp_number': emp['emp_number'],
-                'leave_type': random.choice(leave_types),
-                'date_from': str(start),
-                'date_to': str(end),
-                'days': length,
-                'status': status,
-                'comments': fake.sentence(nb_words=6)
-            })
-    return rows
-
-
-def generate_timesheets(employees, weeks=4):
-    rows = []
-    today = datetime.now().date()
-    for emp in employees:
-        for w in range(weeks):
-            start = today - timedelta(days=today.weekday() + 7*(w+1))
-            for d in range(5):
-                work_date = start + timedelta(days=d)
-                duration_hours = random.choice([8,8.5,9])
-                rows.append({
-                    'emp_number': emp['emp_number'],
-                    'date': str(work_date),
-                    'duration_hours': duration_hours,
-                    'project': random.choice(['Super App','E-Banking Web','HRM System','Internal'])
-                })
-    return rows
-
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
     'user': os.getenv('DB_USER', 'orangehrm'),
@@ -96,74 +20,162 @@ DB_CONFIG = {
 EXPORT_DIR = os.path.join(os.path.dirname(__file__), 'exports')
 os.makedirs(EXPORT_DIR, exist_ok=True)
 
-
 def connect_db():
     return mysql.connector.connect(**DB_CONFIG)
 
+def get_employees(cursor):
+    cursor.execute("SELECT emp_number, emp_lastname, emp_firstname FROM hs_hr_employee")
+    return cursor.fetchall()
 
-def try_insert_leave(cursor, lr):
-    # Best-effort insert into common leave table shape
+def ensure_leave_types(cursor):
+    types = ['Annual Leave', 'Casual Leave', 'Sick Leave', 'Maternity Leave']
+    type_ids = {} # Đổi thành dict để lưu tên và ID
+    
+    # Lấy các loại đã có
+    cursor.execute("SELECT id, name FROM ohrm_leave_type WHERE deleted = 0")
+    existing = {row[1]: row[0] for row in cursor.fetchall()}
+    
+    for t_name in types:
+        if t_name in existing:
+            type_ids[t_name] = existing[t_name]
+        else:
+            try:
+                cursor.execute("INSERT INTO ohrm_leave_type (name, exclude_in_reports_if_no_entitlement, deleted) VALUES (%s, 0, 0)", (t_name,))
+                type_ids[t_name] = cursor.lastrowid
+            except:
+                pass
+    return type_ids
+
+def generate_ess_data():
+    conn = connect_db()
+    cursor = conn.cursor()
+    print("="*50)
+    print("GENERATE ESS DATA (LEAVE & ATTENDANCE)")
+    print("="*50)
+
     try:
-        cursor.execute(
-            "INSERT INTO ohrm_leave_request (emp_number, date_from, date_to, comments, status) VALUES (%s,%s,%s,%s,%s)",
-            (lr['emp_number'], lr['date_from'], lr['date_to'], lr['comments'], lr['status'])
-        )
-        return True
-    except Exception:
-        return False
+        employees = get_employees(cursor)
+        if not employees:
+            print("LỖI: Không tìm thấy nhân viên. Hãy chạy generate_dim.py trước.")
+            return
 
+        print(f"-> Tìm thấy {len(employees)} nhân viên. Đang xử lý...")
+        leave_types_map = ensure_leave_types(cursor)
+        leave_type_ids = list(leave_types_map.values())
+        
+        # --- 1. CẤP QUỸ PHÉP (LEAVE ENTITLEMENTS) - MỚI BỔ SUNG ---
+        print("-> Đang cấp quỹ phép (Entitlements)...")
+        entitlement_count = 0
+        current_year = datetime.now().year
+        start_year = f"{current_year}-01-01 00:00:00"
+        end_year = f"{current_year}-12-31 23:59:59"
 
-def run_ess(n_employees=50):
-    employees = generate_employees(n_employees)
-    leaves = generate_leave_requests(employees, pct=0.3)
-    timesheets = generate_timesheets(employees, weeks=2)
+        # Lấy ID của Annual Leave để cấp phép
+        annual_id = leave_types_map.get('Annual Leave')
+        
+        if annual_id:
+            for emp in employees:
+                emp_number = emp[0]
+                # Kiểm tra xem đã có entitlement chưa
+                cursor.execute("""
+                    SELECT id FROM ohrm_leave_entitlement 
+                    WHERE emp_number=%s AND leave_type_id=%s AND from_date >= %s
+                """, (emp_number, annual_id, f"{current_year}-01-01"))
+                
+                if not cursor.fetchone():
+                    days = 12.0 # Mặc định 12 ngày phép
+                    try:
+                        # Insert vào bảng ohrm_leave_entitlement
+                        sql_ent = """
+                            INSERT INTO ohrm_leave_entitlement 
+                            (emp_number, no_of_days, days_used, leave_type_id, from_date, to_date, credited_date, created_by_id)
+                            VALUES (%s, %s, 0, %s, %s, %s, NOW(), 1)
+                        """
+                        cursor.execute(sql_ent, (emp_number, days, annual_id, start_year, end_year))
+                        entitlement_count += 1
+                    except Exception as e:
+                        pass # Bỏ qua nếu lỗi duplicate
+        
+        print(f"   Đã cấp quỹ phép năm (12 ngày) cho {entitlement_count} nhân viên.")
 
-    try:
-        conn = connect_db()
-        cursor = conn.cursor()
-        print('Connected to DB — inserting ESS data')
-
-        # Insert basic employee profiles
+        # --- 2. TẠO DỮ LIỆU NGHỈ PHÉP (LEAVE REQUESTS) ---
+        print("-> Đang tạo dữ liệu Leave Requests...")
+        leave_count = 0
+        
         for emp in employees:
-            try:
-                cursor.execute(
-                    "INSERT IGNORE INTO hs_hr_employee (emp_number, employee_id, emp_lastname, emp_firstname, emp_middle_name, emp_work_email, joined_date) VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                    (emp['emp_number'], emp['employee_id'], emp['last_name'], emp['first_name'], emp['middle_name'], emp['work_email'], emp['joined_date'])
-                )
-            except Exception:
-                pass
+            emp_number = emp[0]
+            for _ in range(random.randint(0, 3)):
+                start_date = fake.date_between(start_date='-6m', end_date='today')
+                days = random.randint(1, 5)
+                
+                status = random.choice([3, 2, 1]) 
+                l_type = random.choice(leave_type_ids)
+                
+                sql_req = "INSERT INTO ohrm_leave_request (leave_type_id, date_applied, emp_number) VALUES (%s, %s, %s)"
+                cursor.execute(sql_req, (l_type, start_date, emp_number))
+                request_id = cursor.lastrowid
+                
+                current_date = start_date
+                for i in range(days):
+                    sql_leave = """
+                        INSERT INTO ohrm_leave 
+                        (date, length_days, length_hours, status, leave_request_id, leave_type_id, emp_number, duration_type)
+                        VALUES (%s, 1.00, 8.00, %s, %s, %s, %s, 0)
+                    """
+                    cursor.execute(sql_leave, (current_date, status, request_id, l_type, emp_number))
+                    current_date += timedelta(days=1)
+                
+                leave_count += 1
 
-        # Leave requests
-        inserted = 0
-        for lr in leaves:
-            if try_insert_leave(cursor, lr):
-                inserted += 1
+        print(f"   Đã tạo {leave_count} đơn nghỉ phép.")
 
-        # Attendance/timesheet: try common table
-        att_inserted = 0
-        for ts in timesheets:
-            try:
-                cursor.execute(
-                    "INSERT IGNORE INTO ohrm_attendance_record (employee_id, punch_in_user_time, punch_out_user_time, state) VALUES (%s,%s,%s,%s)",
-                    (ts['emp_number'], ts['date'] + ' 09:00:00', ts['date'] + ' 17:00:00', 'PUNCHED OUT')
-                )
-                att_inserted += 1
-            except Exception:
-                pass
-
+        # --- 3. TẠO DỮ LIỆU CHẤM CÔNG (ATTENDANCE) ---
+        print("-> Đang tạo dữ liệu Attendance (Chấm công)...")
+        att_count = 0
+        
+        for emp in employees:
+            emp_number = emp[0]
+            today = datetime.now().date()
+            for i in range(14):
+                work_date = today - timedelta(days=i)
+                if work_date.weekday() >= 5: continue 
+                
+                in_time = datetime.combine(work_date, datetime.strptime("08:00:00", "%H:%M:%S").time()) + timedelta(minutes=random.randint(-15, 30))
+                out_time = datetime.combine(work_date, datetime.strptime("17:30:00", "%H:%M:%S").time()) + timedelta(minutes=random.randint(-15, 30))
+                
+                sql_att = """
+                    INSERT INTO ohrm_attendance_record 
+                    (employee_id, punch_in_user_time, punch_out_user_time, punch_in_note, punch_out_note, state)
+                    VALUES (%s, %s, %s, 'Normal check-in', 'Normal check-out', 'PUNCHED_OUT')
+                """
+                cursor.execute(sql_att, (emp_number, in_time, out_time))
+                att_count += 1
+                
+        print(f"   Đã tạo {att_count} bản ghi chấm công.")
+        
         conn.commit()
-        cursor.close()
-        conn.close()
-        print(f'Inserted/updated employees: {len(employees)}, leaves: {inserted}, attendance records: {att_inserted}')
+        print("[THÀNH CÔNG] Dữ liệu ESS đã được tạo xong!")
+        
+        # Xuất file báo cáo
+        export_ess_report(entitlement_count, leave_count, att_count)
 
-    except Exception as e:
-        print('DB unavailable or insertion failed:', e)
-        print('No file exports will be performed; exiting with failure.')
-        sys.exit(1)
+    except mysql.connector.Error as err:
+        print(f"Lỗi MySQL: {err}")
+    finally:
+        if conn: conn.close()
 
+def export_ess_report(e_count, l_count, a_count):
+    data = [
+        {'Category': 'Leave Entitlements', 'Total Generated': e_count, 'Tables Affected': 'ohrm_leave_entitlement'},
+        {'Category': 'Leave Requests', 'Total Generated': l_count, 'Tables Affected': 'ohrm_leave_request, ohrm_leave'},
+        {'Category': 'Attendance Records', 'Total Generated': a_count, 'Tables Affected': 'ohrm_attendance_record'}
+    ]
+    path = os.path.join(EXPORT_DIR, 'ess_generation_summary.csv')
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=['Category', 'Total Generated', 'Tables Affected'])
+        writer.writeheader()
+        writer.writerows(data)
+    print(f"-> File báo cáo đã xuất tại: {path}")
 
-if __name__ == '__main__':
-    print('='*50)
-    print('GENERATE EMPLOYEE SELF-SERVICE (ESS) DATA')
-    print('='*50)
-    run_ess(50)
+if __name__ == "__main__":
+    generate_ess_data()

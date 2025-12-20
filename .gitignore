@@ -15,3 +15,7 @@ docs/*.pdf
 
 # Python cache
 **/__pycache__/
+
+# Ignore generated
+tools/
+exports/
