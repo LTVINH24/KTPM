@@ -43,7 +43,7 @@ STATUS_DISTRIBUTION = {
     5: 8,   # 8% pass PV
     6: 4,   # 4% fail PV
     7: 2,   # 2% đã offer
-    8: 0,   # 0% từ chối offer (rare)
+    8: 0,   # 0% từ chối offer
     9: 1    # 1% đã tuyển
 }
 
@@ -71,9 +71,7 @@ JOB_VACANCY_NAMES = [
     'Sales Executive - B2B',
     'Customer Service Representative',
     'Data Analyst',
-    'Data Engineer',
-    'Mobile Developer (Flutter/React Native)',
-    'System Administrator'
+    'Data Engineer'
 ]
 
 # Mô tả công việc (Job Descriptions)
@@ -233,7 +231,7 @@ def generate_recruitment_data():
             elif 'Designer' in vacancy_name:
                 description = JOB_DESCRIPTIONS['Designer']
             else:
-                description = "Mô tả công việc chi tiết. Yêu cầu ứng viên có kinh nghiệm và kỹ năng phù hợp. Môi trường làm việc chuyên nghiệp và năng động."
+                description = "Detailed job description. Candidates are required to have relevant experience and skills. Professional and dynamic working environment."
             
             # 70% Active, 30% Closed
             status = 1 if random.random() < 0.7 else 2
@@ -571,7 +569,8 @@ def generate_recruitment_data():
                 vacancy['name'],
                 vacancy['hiring_manager'],
                 applied_date,
-                f"Ứng viên nộp đơn cho vị trí {vacancy['name']}"
+                # f"Ứng viên nộp đơn cho vị trí {vacancy['name']}"
+                f"Candidate applied for the position of {vacancy['name']}"
             ))
             history_count += 1
             
@@ -589,7 +588,7 @@ def generate_recruitment_data():
                     vacancy['name'],
                     vacancy['hiring_manager'],
                     shortlist_date,
-                    "Ứng viên được chọn vào vòng trong"
+                    "Candidate selected for shortlisting"
                 ))
                 history_count += 1
             
@@ -625,7 +624,8 @@ def generate_recruitment_data():
                     vacancy['name'],
                     vacancy['hiring_manager'],
                     schedule_date,
-                    "Đã hẹn lịch phỏng vấn"
+                    # "Đã hẹn lịch phỏng vấn"
+                    "Candidate scheduled for interview"
                 ))
                 history_count += 1
             
@@ -661,7 +661,7 @@ def generate_recruitment_data():
                     vacancy['name'],
                     vacancy['hiring_manager'],
                     fail_date,
-                    "Không đạt yêu cầu kỹ thuật"
+                    "Candidate failed the interview"
                 ))
                 history_count += 1
             
@@ -679,7 +679,7 @@ def generate_recruitment_data():
                     vacancy['name'],
                     vacancy['hiring_manager'],
                     offer_date,
-                    "Đã gửi thư mời làm việc"
+                    "Candidate received an offer"
                 ))
                 history_count += 1
             
@@ -697,7 +697,7 @@ def generate_recruitment_data():
                     vacancy['name'],
                     vacancy['hiring_manager'],
                     hire_date,
-                    "Ứng viên đã nhận việc và bắt đầu làm việc"
+                    "Candidate accepted the offer"
                 ))
                 history_count += 1
         

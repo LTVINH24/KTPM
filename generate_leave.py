@@ -475,7 +475,7 @@ def generate_leave_data():
         print(f"   • Leave Requests: {leave_request_count}")
         print(f"   • Leave Days: {leave_day_count}")
         print(f"   • Comments: {comment_count}")
-        print("=" * 70)
+        print("=" * 50)
         
         # Hiển thị dữ liệu mẫu từ database
         print("\nMẪU DỮ LIỆU:")
@@ -497,7 +497,7 @@ def generate_leave_data():
         print("-" * 50)
         for row in cursor.fetchall():
             print(f"{row[0]:<10} {row[1]:<20} {row[2]:<20} {row[3]:>10.1f} {row[4]:>8.1f} {row[5]:>10.1f}")
-        print("-" * 70)
+        print("-" * 50)
         
     except mysql.connector.Error as err:
         print(f"\nLỖI MySQL: {err}")
