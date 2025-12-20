@@ -24,9 +24,7 @@ def main():
 ╠══════════════════════════════════════════════════════════╣
 ║  Thứ tự chạy:                                            ║
 ║  1. generate_dim.py        (Nhân viên, Users)            ║
-║  2. generate_hr_admin.py   (HR Admin data)               ║
-║  3. generate_time_attendance.py (Time & Attendance)      ║
-║  4. generate_performance.py (Performance Management)     ║
+║  2. generate_time_attendance.py (Time & Attendance)      ║
 ╚══════════════════════════════════════════════════════════╝
     """)
     
