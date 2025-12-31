@@ -1,21 +1,24 @@
-# KTPM - Công cụ tạo dữ liệu test cho OrangeHRM
+# Công cụ tạo dữ liệu test cho OrangeHRM
 
 Bộ công cụ Python tự động tạo dữ liệu test cho hệ thống **OrangeHRM**, phục vụ kiểm thử 2 module:
-- **HR Administration**
-- **Performance Management**
+- **Reporting and Analytics**
+- **Employee Self-Service**
 
 ---
 
-## 🛠️ Cài đặt
+## Cài đặt
 
 **Nếu sử dụng venv**
 
 
 ```bash
 # Bước 1: Tạo
-python -m venv venv
+python -m venv .venv
+
 # Bước 2: Chạy
-.\venv\Scripts\activate
+.\.venv\Scripts\activate            # Dành cho Windows
+source .venv/bin/activate           # Dành cho Linux, MacOS
+source .venv/Scripts/activate       # Dành cho Windows Git Bash
 ```
 
 ```bash
@@ -33,7 +36,7 @@ cp .env.example .env
 
 ---
 
-## 🚀 Chạy Generate Data
+## Chạy Generate Data
 
 ### Cách 1: Chạy tất cả (khuyến nghị)
 
@@ -61,7 +64,7 @@ docker exec -it orangehrm-mysql mysql -uroot -proot -e "ALTER USER 'orangehrm'@'
 
 ---
 
-## 📁 Cấu trúc
+## Cấu trúc
 
 | File | Mô tả |
 |------|-------|
@@ -73,14 +76,14 @@ docker exec -it orangehrm-mysql mysql -uroot -proot -e "ALTER USER 'orangehrm'@'
 
 ---
 
-## 📖 Tài liệu chi tiết
+## Tài liệu chi tiết
 
 - [Requirement 2](docs/markdown/REQUIREMENT_2_REPORT_DATA_GENERATION.md) - Phân loại bảng theo module
 - [Requirement 3](docs/markdown/REQUIREMENT_3_FUNCTIONAL_TESTING.md) - Tóm tắt dữ liệu được tạo
 
 ---
 
-## 🔐 Thông tin mặc định
+## Thông tin mặc định
 
 | Thông tin | Giá trị |
 |-----------|---------|
@@ -90,6 +93,7 @@ docker exec -it orangehrm-mysql mysql -uroot -proot -e "ALTER USER 'orangehrm'@'
 
 ---
 
-## 👥 Tác giả
+## Tác giả
 
-**LTVINH24** - [GitHub](https://github.com/LTVINH24)
+- Tác giả chính: **Trương Lê Anh Vũ** - [GitHub](https://github.com/tlavu2004)
+- Chủ repository: **Lê Thành Vinh** - [GitHub](https://github.com/LTVINH24)
